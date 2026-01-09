@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="https://cdn.krea.edu.in/favicon.ico">
     <title>Krea Speed Test</title>
     <script>
         // Server URL for speed test - uses relative path to work with any domain
@@ -42,7 +44,7 @@
             background: rgba(255, 255, 255, 0.95);
             border-radius: 25px;
             padding: 40px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
             max-width: 900px;
             width: 95%;
@@ -65,7 +67,7 @@
             margin-bottom: 10px;
             font-size: 3em;
             font-weight: 700;
-            text-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         .subtitle {
@@ -144,13 +146,11 @@
             width: 300px;
             height: 300px;
             margin: 0 auto 30px;
-            background: conic-gradient(
-                from 0deg,
-                #ff4444 0deg 60deg,
-                #ffaa00 60deg 120deg,
-                #2C5530 120deg 240deg,
-                #4A7C59 240deg 360deg
-            );
+            background: conic-gradient(from 0deg,
+                    #ff4444 0deg 60deg,
+                    #ffaa00 60deg 120deg,
+                    #2C5530 120deg 240deg,
+                    #4A7C59 240deg 360deg);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -295,7 +295,7 @@
 
         .result-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
 
         .result-card h3 {
@@ -328,10 +328,25 @@
             text-transform: uppercase;
         }
 
-        .quality-excellent { background: #4A7C59; color: white; }
-        .quality-good { background: #6B9B73; color: white; }
-        .quality-fair { background: #ffc107; color: #333; }
-        .quality-poor { background: #f44336; color: white; }
+        .quality-excellent {
+            background: #4A7C59;
+            color: white;
+        }
+
+        .quality-good {
+            background: #6B9B73;
+            color: white;
+        }
+
+        .quality-fair {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .quality-poor {
+            background: #f44336;
+            color: white;
+        }
 
         /* IP Information */
         .ip-info {
@@ -402,8 +417,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         /* Status Icons */
@@ -446,7 +466,7 @@
         .icon-symbol {
             font-size: 3em;
             margin-bottom: 10px;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
         }
 
         .icon-label {
@@ -563,9 +583,11 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
-        <img src="https://cdn.krea.edu.in/logo.png" alt="Krea University" class="krea-logo" onerror="this.style.display='none'">
+        <img src="https://cdn.krea.edu.in/logo.png" alt="Krea University" class="krea-logo"
+            onerror="this.style.display='none'">
         <h1>⚡ SPEED TEST</h1>
         <p class="subtitle">Powered by Krea University</p>
 
@@ -586,7 +608,7 @@
                     <div class="dot"></div>
                 </div>
             </div>
-            
+
             <div class="status-icon" id="networkIcon">
                 <div class="icon-symbol">🎮</div>
                 <div class="icon-label">Network</div>
@@ -598,7 +620,7 @@
                     <div class="dot"></div>
                 </div>
             </div>
-            
+
             <div class="status-icon" id="streamingIcon">
                 <div class="icon-symbol">▶️</div>
                 <div class="icon-label">Streaming</div>
@@ -610,7 +632,7 @@
                     <div class="dot"></div>
                 </div>
             </div>
-            
+
             <div class="status-icon" id="voipIcon">
                 <div class="icon-symbol">👤</div>
                 <div class="icon-label">VoIP</div>
@@ -633,7 +655,7 @@
                     <div class="speed-label" id="currentTest">READY</div>
                 </div>
             </div>
-            
+
             <div class="progress-container">
                 <div class="progress-bar">
                     <div class="progress-fill" id="mainProgress"></div>
@@ -848,7 +870,7 @@
             setIconDots(iconId, count) {
                 const icon = document.getElementById(iconId);
                 const dots = icon.querySelectorAll('.dot');
-                
+
                 dots.forEach((dot, index) => {
                     dot.classList.remove('active', 'completed', 'failed');
                     if (index < count) {
@@ -870,7 +892,7 @@
                 document.getElementById('currentSpeed').textContent = speed.toFixed(1);
                 document.getElementById('currentTest').textContent = testName.toUpperCase();
                 document.getElementById('mainProgress').style.width = `${progress}%`;
-                
+
                 // Add point to chart
                 this.addChartPoint(speed);
             }
@@ -879,21 +901,21 @@
                 const chartLine = document.getElementById('chartLine');
                 const point = document.createElement('div');
                 point.className = 'chart-point';
-                
+
                 const maxSpeed = 100; // Adjust based on expected speeds
                 const height = Math.min((speed / maxSpeed) * 80, 80);
                 point.style.height = `${height}px`;
                 point.style.left = `${this.chartPoints.length * 3}px`;
-                
+
                 chartLine.appendChild(point);
                 this.chartPoints.push(speed);
-                
+
                 // Keep only last 100 points
                 if (this.chartPoints.length > 100) {
                     const firstPoint = chartLine.firstChild;
                     if (firstPoint) firstPoint.remove();
                     this.chartPoints.shift();
-                    
+
                     // Reposition remaining points
                     Array.from(chartLine.children).forEach((child, index) => {
                         child.style.left = `${index * 3}px`;
@@ -907,7 +929,7 @@
                     const response = await fetch(`${this.serverUrl}/healthz`, {
                         method: 'GET',
                         mode: 'cors',
-                        headers: { 
+                        headers: {
                             'Accept': 'application/json',
                             'Content-Type': 'application/json'
                         }
@@ -927,46 +949,46 @@
                 document.getElementById('pingItem').classList.add('active');
                 document.getElementById('pingStatus').textContent = 'Running...';
                 this.updateProgress('Measuring ping latency...', 10);
-                
+
                 const pings = [];
                 const numPings = 5;
-                
+
                 for (let i = 0; i < numPings; i++) {
                     const start = performance.now();
-                    
+
                     try {
                         const response = await fetch(`${this.serverUrl}/ping`, {
                             method: 'GET',
                             mode: 'cors',
-                            headers: { 
+                            headers: {
                                 'Accept': 'application/json',
                                 'Content-Type': 'application/json'
                             }
                         });
-                        
+
                         if (!response.ok) {
                             throw new Error(`Ping failed: ${response.status}`);
                         }
-                        
+
                         await response.json();
                         const latency = performance.now() - start;
                         pings.push(latency);
-                        
+
                         const progress = 10 + ((i + 1) / numPings) * 15;
                         this.updateProgress(`Ping test ${i + 1}/${numPings}...`, progress);
                         document.getElementById('pingValue').textContent = `${latency.toFixed(0)} ms`;
                         this.updateMainDisplay(latency, 'PING', progress);
-                        
+
                         await this.delay(200);
-                        
+
                     } catch (error) {
                         throw new Error(`Ping test failed: ${error.message}`);
                     }
                 }
-                
+
                 const avgPing = pings.reduce((a, b) => a + b, 0) / pings.length;
                 this.results.ping = avgPing;
-                
+
                 document.getElementById('pingValue').textContent = `${avgPing.toFixed(0)} ms`;
                 document.getElementById('pingStatus').textContent = `${avgPing.toFixed(0)} ms`;
                 document.getElementById('pingItem').classList.remove('active');
@@ -979,7 +1001,7 @@
                 document.getElementById('jitterItem').classList.add('active');
                 document.getElementById('jitterStatus').textContent = 'Running...';
                 this.updateProgress('Measuring network jitter...', 30);
-                
+
                 // Try WebSocket jitter test, fallback to HTTP if it fails
                 try {
                     await this.runWebSocketJitterTest();
@@ -987,7 +1009,7 @@
                     console.warn('WebSocket jitter test failed, using HTTP fallback:', wsError);
                     await this.runHttpJitterTest();
                 }
-                
+
                 document.getElementById('jitterItem').classList.remove('active');
                 document.getElementById('jitterItem').classList.add('completed');
             }
@@ -995,12 +1017,12 @@
             async runWebSocketJitterTest() {
                 return new Promise((resolve, reject) => {
                     const wsUrl = this.serverUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-                    
+
                     // Add timeout for WebSocket connection
                     const connectionTimeout = setTimeout(() => {
                         reject(new Error('WebSocket connection timeout'));
                     }, 5000);
-                    
+
                     try {
                         this.websocket = new WebSocket(`${wsUrl}/ws`);
                     } catch (error) {
@@ -1008,54 +1030,54 @@
                         reject(new Error(`WebSocket creation failed: ${error.message}`));
                         return;
                     }
-                    
+
                     const jitterMeasurements = [];
                     const numMeasurements = 10;
                     let measurementCount = 0;
                     const timestamps = [];
-                    
+
                     this.websocket.onopen = () => {
                         clearTimeout(connectionTimeout);
                         console.log('WebSocket connected for jitter test');
                         this.sendJitterPing();
                     };
-                    
+
                     this.websocket.onmessage = (event) => {
                         try {
                             const receiveTime = performance.now();
                             const data = JSON.parse(event.data);
                             const sendTime = parseFloat(data.echo);
-                            
+
                             if (!isNaN(sendTime)) {
                                 const roundTripTime = receiveTime - sendTime;
                                 timestamps.push(roundTripTime);
-                                
+
                                 if (timestamps.length > 1) {
                                     const jitter = Math.abs(timestamps[timestamps.length - 1] - timestamps[timestamps.length - 2]);
                                     jitterMeasurements.push(jitter);
                                 }
-                                
+
                                 measurementCount++;
-                                
+
                                 const progress = 30 + (measurementCount / numMeasurements) * 15;
                                 this.updateProgress(`Jitter measurement ${measurementCount}/${numMeasurements}...`, progress);
-                                
+
                                 if (jitterMeasurements.length > 0) {
                                     const currentJitter = jitterMeasurements[jitterMeasurements.length - 1];
                                     document.getElementById('jitterValue').textContent = `${currentJitter.toFixed(1)} ms`;
                                     this.updateMainDisplay(currentJitter, 'JITTER', progress);
                                 }
-                                
+
                                 if (measurementCount < numMeasurements) {
                                     setTimeout(() => this.sendJitterPing(), 100);
                                 } else {
-                                    const avgJitter = jitterMeasurements.length > 0 ? 
+                                    const avgJitter = jitterMeasurements.length > 0 ?
                                         jitterMeasurements.reduce((a, b) => a + b, 0) / jitterMeasurements.length : 0;
                                     this.results.jitter = avgJitter;
-                                    
+
                                     document.getElementById('jitterValue').textContent = `${avgJitter.toFixed(1)} ms`;
                                     document.getElementById('jitterStatus').textContent = `${avgJitter.toFixed(1)} ms`;
-                                    
+
                                     this.websocket.close();
                                     resolve();
                                 }
@@ -1065,19 +1087,19 @@
                             reject(new Error(`WebSocket message processing failed: ${error.message}`));
                         }
                     };
-                    
+
                     this.websocket.onerror = (error) => {
                         clearTimeout(connectionTimeout);
                         console.error('WebSocket error:', error);
                         reject(new Error('WebSocket connection failed'));
                     };
-                    
+
                     this.websocket.onclose = (event) => {
                         if (measurementCount < numMeasurements) {
                             reject(new Error(`WebSocket closed unexpectedly (code: ${event.code})`));
                         }
                     };
-                    
+
                     // Overall timeout for the entire jitter test
                     setTimeout(() => {
                         if (measurementCount < numMeasurements) {
@@ -1092,7 +1114,7 @@
                 // Fallback HTTP-based jitter test using multiple ping requests
                 const timestamps = [];
                 const numMeasurements = 10;
-                
+
                 for (let i = 0; i < numMeasurements; i++) {
                     const start = performance.now();
                     try {
@@ -1100,7 +1122,7 @@
                         if (response.ok) {
                             const latency = performance.now() - start;
                             timestamps.push(latency);
-                            
+
                             const progress = 30 + ((i + 1) / numMeasurements) * 15;
                             this.updateProgress(`HTTP jitter measurement ${i + 1}/${numMeasurements}...`, progress);
                         }
@@ -1109,13 +1131,13 @@
                     }
                     await this.delay(100);
                 }
-                
+
                 // Calculate jitter as standard deviation of latencies
                 if (timestamps.length > 1) {
                     const mean = timestamps.reduce((a, b) => a + b, 0) / timestamps.length;
                     const variance = timestamps.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / timestamps.length;
                     const jitter = Math.sqrt(variance);
-                    
+
                     this.results.jitter = jitter;
                     document.getElementById('jitterValue').textContent = `${jitter.toFixed(1)} ms`;
                     document.getElementById('jitterStatus').textContent = `${jitter.toFixed(1)} ms (HTTP)`;
@@ -1203,17 +1225,17 @@
                             'Accept': 'application/octet-stream'
                         }
                     });
-                    
+
                     if (response.status === 429) {
                         // Too many requests, wait and retry
                         await new Promise(resolve => setTimeout(resolve, 500));
                         return 0; // Skip this chunk
                     }
-                    
+
                     if (!response.ok) {
                         throw new Error(`Download failed: ${response.status}`);
                     }
-                    
+
                     const data = await response.arrayBuffer();
                     return data.byteLength;
                 } catch (error) {
@@ -1298,17 +1320,17 @@
                             'Content-Type': 'application/octet-stream'
                         }
                     });
-                    
+
                     if (response.status === 429) {
                         // Too many requests, wait and retry
                         await new Promise(resolve => setTimeout(resolve, 500));
                         return 0; // Skip this chunk
                     }
-                    
+
                     if (!response.ok) {
                         throw new Error(`Upload failed: ${response.status}`);
                     }
-                    
+
                     await response.json(); // Wait for response
                     return data.byteLength;
                 } catch (error) {
@@ -1321,11 +1343,11 @@
             generateRandomData(totalSize) {
                 const maxChunkSize = 65536; // Maximum allowed by crypto.getRandomValues
                 const buffer = new Uint8Array(totalSize);
-                
+
                 for (let offset = 0; offset < totalSize; offset += maxChunkSize) {
                     const chunkSize = Math.min(maxChunkSize, totalSize - offset);
                     const chunk = new Uint8Array(chunkSize);
-                    
+
                     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
                         crypto.getRandomValues(chunk);
                     } else {
@@ -1334,10 +1356,10 @@
                             chunk[i] = Math.floor(Math.random() * 256);
                         }
                     }
-                    
+
                     buffer.set(chunk, offset);
                 }
-                
+
                 return buffer;
             }
 
@@ -1451,25 +1473,25 @@
 
             showFinalResults() {
                 document.getElementById('finalResults').classList.remove('hidden');
-                
+
                 // Ping results
                 const ping = this.results.ping || 0;
                 document.getElementById('finalPing').textContent = ping.toFixed(0);
                 document.getElementById('pingQuality').textContent = this.getLatencyQuality(ping);
                 document.getElementById('pingQuality').className = `result-quality ${this.getLatencyQualityClass(ping)}`;
-                
+
                 // Jitter results
                 const jitter = this.results.jitter || 0;
                 document.getElementById('finalJitter').textContent = jitter.toFixed(1);
                 document.getElementById('jitterQuality').textContent = this.getJitterQuality(jitter);
                 document.getElementById('jitterQuality').className = `result-quality ${this.getJitterQualityClass(jitter)}`;
-                
+
                 // Download results
                 const download = this.results.download || 0;
                 document.getElementById('finalDownload').textContent = download.toFixed(1);
                 document.getElementById('downloadQuality').textContent = this.getSpeedQuality(download);
                 document.getElementById('downloadQuality').className = `result-quality ${this.getSpeedQualityClass(download)}`;
-                
+
                 // Upload results
                 const upload = this.results.upload || 0;
                 document.getElementById('finalUpload').textContent = upload.toFixed(1);
@@ -1530,28 +1552,28 @@
                 document.getElementById('finalResults').classList.add('hidden');
                 document.getElementById('ipInfo').classList.add('hidden');
                 document.getElementById('restartTest').classList.add('hidden');
-                
+
                 // Reset test items
                 const testItems = ['pingItem', 'jitterItem', 'downloadItem', 'uploadItem'];
                 testItems.forEach(id => {
                     const item = document.getElementById(id);
                     item.classList.remove('active', 'completed');
                 });
-                
+
                 // Reset values
                 document.getElementById('currentSpeed').textContent = '0';
                 document.getElementById('currentTest').textContent = 'READY';
                 document.getElementById('mainProgress').style.width = '0%';
                 document.getElementById('progressText').textContent = 'Initializing...';
-                
+
                 ['pingValue', 'jitterValue', 'downloadValue', 'uploadValue'].forEach(id => {
                     document.getElementById(id).textContent = '--';
                 });
-                
+
                 ['pingStatus', 'jitterStatus', 'downloadStatus', 'uploadStatus'].forEach(id => {
                     document.getElementById(id).textContent = 'Waiting';
                 });
-                
+
                 // Clear chart
                 document.getElementById('chartLine').innerHTML = '';
                 this.chartPoints = [];
@@ -1594,4 +1616,5 @@
         });
     </script>
 </body>
+
 </html>

@@ -41,7 +41,7 @@ services:
       SERVER_URL: ${SERVER_URL}
       SWAGGER_HOST: ${SWAGGER_HOST}
     ports:
-      - "8080:8080"
+      - "0.0.0.0:8080:8080"
     depends_on:
       mysql:
         condition: service_healthy
