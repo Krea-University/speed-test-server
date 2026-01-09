@@ -56,12 +56,12 @@ CREATE TABLE IF NOT EXISTS api_keys (
 
 -- Create rate limiting table
 CREATE TABLE IF NOT EXISTS rate_limits (
-    id VARCHAR(36) PRIMARY KEY,
+    id VARCHAR(255) PRIMARY KEY,
     identifier VARCHAR(255) NOT NULL, -- IP address or API key
     endpoint VARCHAR(255) NOT NULL,
     request_count INT DEFAULT 1,
     window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     UNIQUE KEY unique_identifier_endpoint_window (identifier, endpoint, window_start),
     INDEX idx_identifier (identifier),
     INDEX idx_window_start (window_start)

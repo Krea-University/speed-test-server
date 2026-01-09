@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Krea-University/speed-test-server/docs"
+	_ "github.com/Krea-University/speed-test-server/docs"
 	"github.com/Krea-University/speed-test-server/internal/auth"
 	"github.com/Krea-University/speed-test-server/internal/config"
 	"github.com/Krea-University/speed-test-server/internal/database"
@@ -60,11 +60,15 @@ func New() *Server {
 	api := r.PathPrefix("/").Subrouter()
 	api.Use(concurrentLimiter.Middleware)
 
-	// Apply rate limiting if database is available (to non-WebSocket endpoints)
+	// Apply API key authentication if database is available (to non-WebSocket endpoints)
+	// Note: Rate limiting is disabled for speed test performance
 	if authService != nil {
-		api.Use(authService.RateLimit)
 		api.Use(authService.APIKeyAuth)
 	}
+
+	// Test session endpoints (public, no auth required)
+	api.HandleFunc("/test/start", h.StartTest).Methods("POST", "OPTIONS")
+	api.HandleFunc("/test/complete", h.CompleteTest).Methods("POST", "OPTIONS")
 
 	// Public speed test endpoints (with concurrent limiting)
 	api.HandleFunc("/ping", h.Ping).Methods("GET", "OPTIONS")
@@ -81,6 +85,7 @@ func New() *Server {
 	api.HandleFunc("/config", h.Config).Methods("GET", "OPTIONS")
 
 	// Web interface endpoints (public HTML pages, with concurrent limiting)
+	api.HandleFunc("/", h.ServeSpeedTestHTML).Methods("GET", "OPTIONS")
 	api.HandleFunc("/speedtest.html", h.ServeSpeedTestHTML).Methods("GET", "OPTIONS")
 	api.HandleFunc("/new", h.ServeSpeedTestNewHTML).Methods("GET", "OPTIONS")
 
@@ -100,20 +105,13 @@ func New() *Server {
 		apiAuth.HandleFunc("/tests", h.GetAllSpeedTests).Methods("GET")
 		apiAuth.HandleFunc("/tests", h.CreateSpeedTest).Methods("POST")
 		apiAuth.HandleFunc("/tests/{id}", h.GetSpeedTest).Methods("GET")
-	} // Swagger documentation endpoint
-	docs.SwaggerInfo.Title = "Krea Speed Test API"
-	docs.SwaggerInfo.Description = "A comprehensive speed test API with IP geolocation, rate limiting, and Ookla compatibility"
-	docs.SwaggerInfo.Version = config.Version
-
-	// Set host from environment or use default
-	swaggerHost := os.Getenv("SWAGGER_HOST")
-	if swaggerHost == "" {
-		swaggerHost = "localhost:8080"
 	}
-	docs.SwaggerInfo.Host = swaggerHost
-	docs.SwaggerInfo.BasePath = "/"
-	docs.SwaggerInfo.Schemes = []string{"http", "https"}
+
+	// Swagger documentation endpoint
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+
+	// 404 handler - redirect to main page
+	r.NotFoundHandler = http.HandlerFunc(h.NotFound)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
@@ -161,6 +159,7 @@ func (s *Server) Start() error {
 		log.Printf("  GET  /speedtest.html - Main speed test interface")
 		log.Printf("  GET  /new       - Modern speed test interface")
 		log.Printf("  GET  /result/{id} - Ookla-compatible speed test results")
+		log.Printf("  GET  /swagger/index.html - Swagger API documentation")
 
 		if s.db != nil {
 			log.Printf("API endpoints (require authentication):")

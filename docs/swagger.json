@@ -176,6 +176,69 @@
                 }
             }
         },
+        "/download": {
+            "get": {
+                "description": "Stream random data for download speed measurement with optional chunked/threaded delivery",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "Speed Test"
+                ],
+                "summary": "Download speed test",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 52428800,
+                        "description": "Data size in bytes",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Number of chunks for parallel download",
+                        "name": "chunks",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1048576,
+                        "description": "Size of each chunk in bytes",
+                        "name": "chunk_size",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Random data stream",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/new": {
+            "get": {
+                "description": "Serves the speedtest-new.html file for the modern speed test interface",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Web Interface"
+                ],
+                "summary": "Serve modern speed test interface",
+                "responses": {
+                    "200": {
+                        "description": "HTML content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/ping": {
             "get": {
                 "description": "Returns server timestamp in nanoseconds for latency calculation",
@@ -238,6 +301,128 @@
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    }
+                }
+            }
+        },
+        "/speedtest.html": {
+            "get": {
+                "description": "Serves the main speedtest.html file for the speed test interface",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Web Interface"
+                ],
+                "summary": "Serve main speed test interface",
+                "responses": {
+                    "200": {
+                        "description": "HTML content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/test/complete": {
+            "post": {
+                "description": "Completes a test session and saves all collected data to database",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Speed Test"
+                ],
+                "summary": "Complete speed test and save results",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Test session token",
+                        "name": "token",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/test/start": {
+            "post": {
+                "description": "Creates a new test session and returns a unique token to use for test requests",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Speed Test"
+                ],
+                "summary": "Start a new speed test session",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/{any}": {
+            "get": {
+                "description": "Redirects any 404 errors to the main speed test interface",
+                "tags": [
+                    "Web Interface"
+                ],
+                "summary": "Handle 404 errors",
+                "responses": {
+                    "302": {
+                        "description": "Redirect to main page",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }

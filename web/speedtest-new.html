@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Krea Speed Test</title>
     <script>
-        // Hardcoded server URL for speed test
-        window.SPEEDTEST_SERVER_URL = 'http://localhost:8080';
+        // Server URL for speed test - uses relative path to work with any domain
+        window.SPEEDTEST_SERVER_URL = window.location.origin;
     </script>
     <style>
         * {
@@ -450,7 +450,7 @@
     <script>
         class SpeedTest {
             constructor() {
-                this.serverUrl = window.SPEEDTEST_SERVER_URL || 'http://localhost:8080';
+                this.serverUrl = window.SPEEDTEST_SERVER_URL || window.location.origin;
                 this.isRunning = false;
                 this.results = {
                     ping: 0,
@@ -459,6 +459,7 @@
                     upload: 0
                 };
                 this.currentTestType = 'ready';
+                this.sessionToken = null;
             }
 
             updateSpeedDisplay(speed, testType) {
@@ -518,28 +519,34 @@
 
             async startTest() {
                 if (this.isRunning) return;
-                
+
                 this.isRunning = true;
                 this.results = { ping: 0, jitter: 0, download: 0, upload: 0 };
-                
+
                 const button = document.getElementById('startButton');
                 const buttonText = document.getElementById('buttonText');
                 const progressRing = document.getElementById('progressRing');
-                
+
                 button.classList.add('testing');
                 button.disabled = true;
                 buttonText.style.display = 'none';
                 progressRing.style.display = 'block';
 
                 try {
+                    // Create a new test session
+                    await this.createSession();
+
                     await this.runPingTest();
                     await this.runJitterTest();
                     await this.runDownloadTest();
                     await this.runUploadTest();
-                    
+
                     this.updateStatusIcons();
                     this.setActiveResult('');
                     this.updateSpeedDisplay(0, 'Complete');
+
+                    // Complete session to save results to database
+                    await this.completeSession();
                 } catch (error) {
                     console.error('Speed test failed:', error);
                     this.updateSpeedDisplay(0, 'Error');
@@ -853,6 +860,70 @@
                         dot.classList.add('failed');
                     }
                 });
+            }
+
+            async createSession() {
+                try {
+                    const response = await fetch(`${this.serverUrl}/test/start`, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to create session: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    this.sessionToken = data.token;
+                    console.log('Session created:', this.sessionToken);
+                } catch (error) {
+                    console.error('Session creation failed:', error);
+                    throw error;
+                }
+            }
+
+            async completeSession() {
+                if (!this.sessionToken) {
+                    console.warn('No session token, skipping save');
+                    return;
+                }
+
+                try {
+                    // Prepare test results data
+                    const resultsData = {
+                        download_speed_mbps: this.results.download,
+                        upload_speed_mbps: this.results.upload,
+                        ping_latency_ms: this.results.ping,
+                        jitter_ms: this.results.jitter,
+                        isp: this.results.ipInfo?.org || null,
+                        country: this.results.ipInfo?.country || null,
+                        region: this.results.ipInfo?.region || null,
+                        city: this.results.ipInfo?.city || null
+                    };
+
+                    const response = await fetch(`${this.serverUrl}/test/complete?token=${this.sessionToken}`, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(resultsData)
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Results saved with ID:', data.id);
+                    } else {
+                        console.warn('Failed to save results');
+                    }
+                } catch (error) {
+                    console.warn('Error completing session:', error);
+                }
             }
 
             delay(ms) {

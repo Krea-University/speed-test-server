@@ -34,6 +34,8 @@ type Handlers struct {
 	rateLimiter   *ratelimit.ClientLimiter
 	metricsLogger *metrics.MetricsLogger
 	upgrader      websocket.Upgrader
+	sessions      map[string]*models.TestSession // Active test sessions
+	sessionsMutex sync.RWMutex                    // Mutex for thread-safe session access
 }
 
 // New creates a new handlers instance with dependencies
@@ -49,17 +51,85 @@ func New(db *database.Service) *Handlers {
 		log.Printf("Warning: Failed to initialize metrics logger: %v", err)
 	}
 
-	return &Handlers{
+	h := &Handlers{
 		ipService:     ipservice.NewService(),
 		db:            db,
 		rateLimiter:   ratelimit.NewClientLimiter(0, 0, time.Minute), // 0 means unlimited
 		metricsLogger: metricsLogger,
+		sessions:      make(map[string]*models.TestSession),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				return true // Allow all origins for testing purposes
 			},
 		},
 	}
+
+	// Start cleanup goroutine for expired sessions
+	go h.cleanupExpiredSessions()
+
+	return h
+}
+
+// cleanupExpiredSessions periodically removes expired sessions
+func (h *Handlers) cleanupExpiredSessions() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		h.sessionsMutex.Lock()
+		now := time.Now()
+		for token, session := range h.sessions {
+			if now.After(session.ExpiresAt) {
+				delete(h.sessions, token)
+			}
+		}
+		h.sessionsMutex.Unlock()
+	}
+}
+
+// StartTest creates a new test session and returns a token
+// @Summary Start a new speed test session
+// @Description Creates a new test session and returns a unique token to use for test requests
+// @Tags Speed Test
+// @Produce json
+// @Success 200 {object} map[string]string
+// @Router /test/start [post]
+func (h *Handlers) StartTest(w http.ResponseWriter, r *http.Request) {
+	clientIP := getClientIP(r)
+	userAgent := r.UserAgent()
+
+	session := models.NewTestSession(clientIP, userAgent)
+
+	h.sessionsMutex.Lock()
+	h.sessions[session.Token] = session
+	h.sessionsMutex.Unlock()
+
+	response := map[string]interface{}{
+		"token":      session.Token,
+		"expires_at": session.ExpiresAt,
+		"message":    "Test session created successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// getSession retrieves a session by token
+func (h *Handlers) getSession(token string) (*models.TestSession, bool) {
+	h.sessionsMutex.RLock()
+	defer h.sessionsMutex.RUnlock()
+
+	session, exists := h.sessions[token]
+	if !exists {
+		return nil, false
+	}
+
+	// Check if session is expired
+	if time.Now().After(session.ExpiresAt) {
+		return nil, false
+	}
+
+	return session, true
 }
 
 // Ping returns server timestamp for latency measurement
@@ -70,7 +140,6 @@ func New(db *database.Service) *Handlers {
 // @Success 200 {object} types.PingResponse
 // @Router /ping [get]
 func (h *Handlers) Ping(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	response := types.PingResponse{
 		Timestamp: time.Now().UnixNano(),
 	}
@@ -82,26 +151,8 @@ func (h *Handlers) Ping(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Store ping test result
-	if h.db != nil {
-		clientIP := getClientIP(r)
-		latency := float64(time.Since(start).Nanoseconds()) / 1000000 // Convert to milliseconds
-
-		test := models.NewSpeedTest(clientIP, "ping")
-		test.PingLatencyMs = &latency
-		userAgent := r.UserAgent()
-		test.UserAgent = &userAgent
-
-		// Get IP info
-		if ipInfo, err := h.ipService.GetIPInfo(clientIP); err == nil {
-			test.ISP = &ipInfo.ISP
-			test.Country = &ipInfo.Country
-			test.Region = &ipInfo.Region
-			test.City = &ipInfo.City
-		}
-
-		go h.db.CreateSpeedTest(test) // Store asynchronously
-	}
+	// Note: Ping results are not stored individually to minimize latency
+	// Final test results including ping are stored via the session-based API
 }
 
 // Download provides data for download speed testing with multi-threaded chunked support
@@ -491,6 +542,112 @@ func getClientIP(r *http.Request) string {
 
 // API Endpoints for managing speed tests
 
+// CompleteTest completes a test session and saves results to database
+// @Summary Complete speed test and save results
+// @Description Completes a test session and saves all collected data to database
+// @Tags Speed Test
+// @Accept json
+// @Produce json
+// @Param token query string true "Test session token"
+// @Success 201 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /test/complete [post]
+func (h *Handlers) CompleteTest(w http.ResponseWriter, r *http.Request) {
+	// Check if database is available
+	if h.db == nil {
+		http.Error(w, `{"error":"Database not available"}`, http.StatusServiceUnavailable)
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, `{"error":"Token required"}`, http.StatusBadRequest)
+		return
+	}
+
+	session, exists := h.getSession(token)
+	if !exists {
+		http.Error(w, `{"error":"Invalid or expired token"}`, http.StatusNotFound)
+		return
+	}
+
+	// Read test results from request body
+	var resultsData struct {
+		DownloadSpeedMbps *float64 `json:"download_speed_mbps"`
+		UploadSpeedMbps   *float64 `json:"upload_speed_mbps"`
+		PingLatencyMs     *float64 `json:"ping_latency_ms"`
+		JitterMs          *float64 `json:"jitter_ms"`
+		ISP               *string  `json:"isp"`
+		Country           *string  `json:"country"`
+		Region            *string  `json:"region"`
+		City              *string  `json:"city"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&resultsData); err != nil {
+		log.Printf("Error decoding request body: %v", err)
+		http.Error(w, `{"error":"Invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Update session with test results
+	session.DownloadSpeedMbps = resultsData.DownloadSpeedMbps
+	session.UploadSpeedMbps = resultsData.UploadSpeedMbps
+	session.PingLatencyMs = resultsData.PingLatencyMs
+	session.JitterMs = resultsData.JitterMs
+	session.ISP = resultsData.ISP
+	session.Country = resultsData.Country
+	session.Region = resultsData.Region
+	session.City = resultsData.City
+
+	// Create speed test record from session data
+	test := models.SpeedTest{
+		ID:                uuid.New().String(),
+		ClientIP:          session.ClientIP,
+		TestType:          "full",
+		DownloadSpeedMbps: session.DownloadSpeedMbps,
+		UploadSpeedMbps:   session.UploadSpeedMbps,
+		PingLatencyMs:     session.PingLatencyMs,
+		JitterMs:          session.JitterMs,
+		DownloadSizeBytes: session.DownloadBytes,
+		UploadSizeBytes:   session.UploadBytes,
+		ISP:               session.ISP,
+		Country:           session.Country,
+		Region:            session.Region,
+		City:              session.City,
+		ServerName:        "Krea Speed Test Server",
+		ServerCountry:     "IN",
+		ServerCity:        "Sri City",
+		Sponsor:           "Krea University",
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+
+	ua := session.UserAgent
+	test.UserAgent = &ua
+
+	if err := h.db.CreateSpeedTest(&test); err != nil {
+		log.Printf("Error saving speed test: %v", err)
+		http.Error(w, `{"error":"Failed to save speed test"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Remove session after saving
+	h.sessionsMutex.Lock()
+	delete(h.sessions, token)
+	h.sessionsMutex.Unlock()
+
+	response := map[string]string{
+		"id":      test.ID,
+		"message": "Speed test completed and saved successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
+}
+
 // CreateSpeedTest creates a new speed test record
 // @Summary Create a new speed test
 // @Description Creates a new speed test record and returns the test ID
@@ -677,4 +834,14 @@ func (h *Handlers) ServeSpeedTestHTML(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) ServeSpeedTestNewHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	http.ServeFile(w, r, "web/speedtest-new.html")
+}
+
+// NotFound handles 404 errors by redirecting to the main speed test page
+// @Summary Handle 404 errors
+// @Description Redirects any 404 errors to the main speed test interface
+// @Tags Web Interface
+// @Success 302 {string} string "Redirect to main page"
+// @Router /{any} [get]
+func (h *Handlers) NotFound(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/", http.StatusFound)
 }

@@ -120,6 +120,36 @@ type RateLimitWhitelist struct {
 	IsActive    bool      `json:"is_active" db:"is_active"`
 }
 
+// TestSession represents an active speed test session
+type TestSession struct {
+	Token             string    `json:"token"`
+	ClientIP          string    `json:"client_ip"`
+	UserAgent         string    `json:"user_agent"`
+	CreatedAt         time.Time `json:"created_at"`
+	ExpiresAt         time.Time `json:"expires_at"`
+	PingLatencyMs     *float64  `json:"ping_latency_ms,omitempty"`
+	JitterMs          *float64  `json:"jitter_ms,omitempty"`
+	DownloadSpeedMbps *float64  `json:"download_speed_mbps,omitempty"`
+	UploadSpeedMbps   *float64  `json:"upload_speed_mbps,omitempty"`
+	DownloadBytes     *int64    `json:"download_bytes,omitempty"`
+	UploadBytes       *int64    `json:"upload_bytes,omitempty"`
+	ISP               *string   `json:"isp,omitempty"`
+	Country           *string   `json:"country,omitempty"`
+	Region            *string   `json:"region,omitempty"`
+	City              *string   `json:"city,omitempty"`
+}
+
+// NewTestSession creates a new test session with a unique token
+func NewTestSession(clientIP, userAgent string) *TestSession {
+	return &TestSession{
+		Token:     uuid.New().String(),
+		ClientIP:  clientIP,
+		UserAgent: userAgent,
+		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(15 * time.Minute), // 15 minute expiry
+	}
+}
+
 // NewSpeedTest creates a new speed test record
 func NewSpeedTest(clientIP, testType string) *SpeedTest {
 	return &SpeedTest{

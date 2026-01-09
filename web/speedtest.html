@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Krea Speed Test</title>
     <script>
-        // Hardcoded server URL for speed test
-        window.SPEEDTEST_SERVER_URL = 'http://localhost:8080';
+        // Server URL for speed test - uses relative path to work with any domain
+        window.SPEEDTEST_SERVER_URL = window.location.origin;
     </script>
     <style>
         * {
@@ -735,7 +735,7 @@
     <script>
         class SpeedTest {
             constructor() {
-                this.serverUrl = window.SPEEDTEST_SERVER_URL || 'http://localhost:8080';
+                this.serverUrl = window.SPEEDTEST_SERVER_URL || window.location.origin;
                 this.results = {
                     ping: null,
                     jitter: null,
@@ -747,6 +747,7 @@
                 this.websocket = null;
                 this.chartPoints = [];
                 this.currentTestPhase = '';
+                this.sessionToken = null; // Track session token
             }
 
             async startTest() {
@@ -757,23 +758,29 @@
                 this.resetUI();
                 this.showSpeedDisplay();
                 this.showStatusIcons();
-                
+
                 document.getElementById('startTest').disabled = true;
                 document.getElementById('buttonText').innerHTML = '<div class="loading-spinner"></div> TESTING...';
 
                 try {
                     // Test server connectivity first
                     await this.testConnectivity();
-                    
+
+                    // Create a new test session
+                    await this.createSession();
+
                     // Run tests in sequence
                     await this.runPingTest();
                     await this.runJitterTest();
                     await this.runDownloadTest();
                     await this.runUploadTest();
                     await this.getIPInfo();
-                    
+
                     this.showFinalResults();
-                    
+
+                    // Complete the session to save all results
+                    await this.completeSession();
+
                 } catch (error) {
                     this.showError(`Test failed: ${error.message}`);
                     console.error('Test error:', error);
@@ -1130,68 +1137,60 @@
                 document.getElementById('downloadItem').classList.add('active');
                 document.getElementById('downloadStatus').textContent = 'Running...';
                 this.updateProgress('Testing download speed...', 50);
-                
-                // Simplified: fewer, larger tests with rate limiting
-                const duration = 8000; // 8 seconds
+
+                // Optimized for multi-gigabit speeds
+                const duration = 10000; // 10 seconds for better accuracy
                 const startTime = performance.now();
                 let totalBytes = 0;
                 let maxSpeed = 0;
-                let activeRequests = 0;
-                const maxConcurrentRequests = 0; // Unlimited - server has no rate limits
-                
-                const downloadWithRateLimit = async () => {
+                const maxConcurrentRequests = 16; // High concurrency for multi-gigabit
+                const chunkSize = 10485760; // 10MB chunks for better throughput
+
+                const downloadTest = async () => {
                     const promises = [];
-                    
-                    while (performance.now() - startTime < duration) {
-                        // Skip rate limiting check if unlimited
-                        if (maxConcurrentRequests > 0 && activeRequests >= maxConcurrentRequests) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                            continue;
-                        }
-                        
-                        activeRequests++;
-                        const promise = this.downloadChunk(1048576) // 1MB chunks
-                            .then(bytes => {
-                                if (bytes > 0) {
-                                    totalBytes += bytes;
-                                    
-                                    const elapsed = (performance.now() - startTime) / 1000;
-                                    const currentSpeed = (totalBytes * 8) / (elapsed * 1000000); // Mbps
-                                    
-                                    if (currentSpeed > maxSpeed) {
-                                        maxSpeed = currentSpeed;
-                                    }
-                                    
-                                    document.getElementById('downloadValue').textContent = `${currentSpeed.toFixed(1)}`;
-                                    this.updateMainDisplay(currentSpeed, 'DOWNLOAD', 50 + (elapsed / duration) * 40);
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Download chunk failed:', error);
-                            })
-                            .finally(() => {
-                                activeRequests--;
-                            });
-                        
-                        promises.push(promise);
-                        
-                        // Small delay between requests
-                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // Start initial batch of concurrent requests
+                    for (let i = 0; i < maxConcurrentRequests; i++) {
+                        promises.push(this.downloadWorker(startTime, duration, chunkSize, () => {
+                            totalBytes += chunkSize;
+                            const elapsed = (performance.now() - startTime) / 1000;
+                            const currentSpeed = (totalBytes * 8) / (elapsed * 1000000); // Mbps
+
+                            if (currentSpeed > maxSpeed) {
+                                maxSpeed = currentSpeed;
+                            }
+
+                            document.getElementById('downloadValue').textContent = `${currentSpeed.toFixed(1)}`;
+                            this.updateMainDisplay(currentSpeed, 'DOWNLOAD', 50 + (elapsed / duration) * 40);
+                        }));
                     }
-                    
-                    // Wait for all remaining requests to complete
+
                     await Promise.all(promises);
                 };
-                
-                await downloadWithRateLimit();
-                
+
+                await downloadTest();
+
                 const finalSpeed = maxSpeed;
                 this.results.download = finalSpeed;
-                
+
                 document.getElementById('downloadValue').textContent = `${finalSpeed.toFixed(1)}`;
                 document.getElementById('downloadStatus').textContent = `${finalSpeed.toFixed(1)} Mbps`;
                 document.getElementById('downloadItem').classList.remove('active');
                 this.updateProgress('Download test completed', 60);
+            }
+
+            // Worker for continuous downloading
+            async downloadWorker(startTime, duration, chunkSize, onProgress) {
+                while (performance.now() - startTime < duration) {
+                    try {
+                        const bytes = await this.downloadChunk(chunkSize);
+                        if (bytes > 0) {
+                            onProgress();
+                        }
+                    } catch (error) {
+                        console.error('Download chunk failed:', error);
+                    }
+                }
             }
 
             // Helper method for downloading chunks with error handling
@@ -1228,72 +1227,64 @@
                 document.getElementById('uploadItem').classList.add('active');
                 document.getElementById('uploadStatus').textContent = 'Running...';
                 this.updateProgress('Testing upload speed...', 80);
-                
-                // Simplified: rate-limited approach
-                const duration = 8000; // 8 seconds
+
+                // Optimized for multi-gigabit speeds
+                const duration = 10000; // 10 seconds
                 const startTime = performance.now();
                 let totalBytes = 0;
                 let maxSpeed = 0;
-                let activeRequests = 0;
-                const maxConcurrentRequests = 0; // Unlimited - server has no rate limits
-                
+                const maxConcurrentRequests = 16; // High concurrency
+                const chunkSize = 10485760; // 10MB chunks
+
                 // Generate test data once
-                const testData = this.generateRandomData(1048576); // 1MB
-                
-                const uploadWithRateLimit = async () => {
+                const testData = this.generateRandomData(chunkSize);
+
+                const uploadTest = async () => {
                     const promises = [];
-                    
-                    while (performance.now() - startTime < duration) {
-                        // Skip rate limiting check if unlimited
-                        if (maxConcurrentRequests > 0 && activeRequests >= maxConcurrentRequests) {
-                            await new Promise(resolve => setTimeout(resolve, 100));
-                            continue;
-                        }
-                        
-                        activeRequests++;
-                        const promise = this.uploadChunk(testData)
-                            .then(bytes => {
-                                if (bytes > 0) {
-                                    totalBytes += bytes;
-                                    
-                                    const elapsed = (performance.now() - startTime) / 1000;
-                                    const currentSpeed = (totalBytes * 8) / (elapsed * 1000000); // Mbps
-                                    
-                                    if (currentSpeed > maxSpeed) {
-                                        maxSpeed = currentSpeed;
-                                    }
-                                    
-                                    document.getElementById('uploadValue').textContent = `${currentSpeed.toFixed(1)}`;
-                                    this.updateMainDisplay(currentSpeed, 'UPLOAD', 80 + (elapsed / duration) * 15);
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Upload chunk failed:', error);
-                            })
-                            .finally(() => {
-                                activeRequests--;
-                            });
-                        
-                        promises.push(promise);
-                        
-                        // Small delay between requests
-                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                    // Start initial batch of concurrent requests
+                    for (let i = 0; i < maxConcurrentRequests; i++) {
+                        promises.push(this.uploadWorker(startTime, duration, testData, () => {
+                            totalBytes += chunkSize;
+                            const elapsed = (performance.now() - startTime) / 1000;
+                            const currentSpeed = (totalBytes * 8) / (elapsed * 1000000); // Mbps
+
+                            if (currentSpeed > maxSpeed) {
+                                maxSpeed = currentSpeed;
+                            }
+
+                            document.getElementById('uploadValue').textContent = `${currentSpeed.toFixed(1)}`;
+                            this.updateMainDisplay(currentSpeed, 'UPLOAD', 80 + (elapsed / duration) * 15);
+                        }));
                     }
-                    
-                    // Wait for all remaining requests to complete
+
                     await Promise.all(promises);
                 };
-                
-                await uploadWithRateLimit();
-                
+
+                await uploadTest();
+
                 const finalSpeed = maxSpeed;
                 this.results.upload = finalSpeed;
-                
+
                 document.getElementById('uploadValue').textContent = `${finalSpeed.toFixed(1)}`;
                 document.getElementById('uploadStatus').textContent = `${finalSpeed.toFixed(1)} Mbps`;
                 document.getElementById('uploadItem').classList.remove('active');
                 document.getElementById('uploadItem').classList.add('completed');
                 this.updateStatusIcons();
+            }
+
+            // Worker for continuous uploading
+            async uploadWorker(startTime, duration, testData, onProgress) {
+                while (performance.now() - startTime < duration) {
+                    try {
+                        const bytes = await this.uploadChunk(testData);
+                        if (bytes > 0) {
+                            onProgress();
+                        }
+                    } catch (error) {
+                        console.error('Upload chunk failed:', error);
+                    }
+                }
             }
 
             // Helper method for uploading chunks with error handling
@@ -1355,15 +1346,15 @@
                 try {
                     const response = await fetch(`${this.serverUrl}/ip`);
                     if (!response.ok) throw new Error('IP info request failed');
-                    
+
                     const ipInfo = await response.json();
                     this.results.ipInfo = ipInfo;
-                    
+
                     document.getElementById('ipInfo').classList.remove('hidden');
-                    
+
                     const ipDetails = document.getElementById('ipDetails');
                     ipDetails.innerHTML = '';
-                    
+
                     const fields = [
                         { label: 'IP Address', value: ipInfo.ip, icon: '🌐' },
                         { label: 'ISP', value: ipInfo.isp, icon: '🏢' },
@@ -1374,7 +1365,7 @@
                         { label: 'Postal Code', value: ipInfo.postal, icon: '📮' },
                         { label: 'Data Source', value: ipInfo.source, icon: '🔍' }
                     ];
-                    
+
                     fields.forEach(field => {
                         if (field.value) {
                             const div = document.createElement('div');
@@ -1383,12 +1374,79 @@
                             ipDetails.appendChild(div);
                         }
                     });
-                    
+
                 } catch (error) {
                     console.warn('Failed to get IP info:', error);
                 }
-                
+
                 this.updateProgress('Test completed!', 100);
+            }
+
+            async createSession() {
+                this.updateProgress('Creating test session...', 2);
+                try {
+                    const response = await fetch(`${this.serverUrl}/test/start`, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to create session: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    this.sessionToken = data.token;
+                    console.log('Session created successfully:', this.sessionToken);
+                } catch (error) {
+                    throw new Error(`Session creation failed: ${error.message}`);
+                }
+            }
+
+            async completeSession() {
+                if (!this.sessionToken) {
+                    console.warn('No session token available, skipping save');
+                    return;
+                }
+
+                this.updateProgress('Saving results...', 98);
+                try {
+                    // Prepare test results data
+                    const resultsData = {
+                        download_speed_mbps: this.results.download,
+                        upload_speed_mbps: this.results.upload,
+                        ping_latency_ms: this.results.ping,
+                        jitter_ms: this.results.jitter,
+                        isp: this.results.ipInfo?.org || null,
+                        country: this.results.ipInfo?.country || null,
+                        region: this.results.ipInfo?.region || null,
+                        city: this.results.ipInfo?.city || null
+                    };
+
+                    const response = await fetch(`${this.serverUrl}/test/complete?token=${this.sessionToken}`, {
+                        method: 'POST',
+                        mode: 'cors',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(resultsData)
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Results saved successfully with ID:', data.id);
+                        this.savedResultId = data.id;
+                    } else {
+                        const errorText = await response.text();
+                        console.warn('Failed to save results:', errorText);
+                    }
+                } catch (error) {
+                    console.warn('Error completing session:', error);
+                }
             }
 
             showFinalResults() {

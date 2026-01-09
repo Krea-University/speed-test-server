@@ -139,6 +139,17 @@ definitions:
 info:
   contact: {}
 paths:
+  /{any}:
+    get:
+      description: Redirects any 404 errors to the main speed test interface
+      responses:
+        "302":
+          description: Redirect to main page
+          schema:
+            type: string
+      summary: Handle 404 errors
+      tags:
+      - Web Interface
   /api/tests:
     get:
       description: Retrieves all speed test records with pagination support
@@ -249,6 +260,49 @@ paths:
       summary: Get speed test by ID
       tags:
       - API
+  /download:
+    get:
+      description: Stream random data for download speed measurement with optional
+        chunked/threaded delivery
+      parameters:
+      - default: 52428800
+        description: Data size in bytes
+        in: query
+        name: size
+        type: integer
+      - default: 1
+        description: Number of chunks for parallel download
+        in: query
+        name: chunks
+        type: integer
+      - default: 1048576
+        description: Size of each chunk in bytes
+        in: query
+        name: chunk_size
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: Random data stream
+          schema:
+            type: string
+      summary: Download speed test
+      tags:
+      - Speed Test
+  /new:
+    get:
+      description: Serves the speedtest-new.html file for the modern speed test interface
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML content
+          schema:
+            type: string
+      summary: Serve modern speed test interface
+      tags:
+      - Web Interface
   /ping:
     get:
       description: Returns server timestamp in nanoseconds for latency calculation
@@ -294,4 +348,74 @@ paths:
       summary: Get speed test in Ookla format
       tags:
       - Public
+  /speedtest.html:
+    get:
+      description: Serves the main speedtest.html file for the speed test interface
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML content
+          schema:
+            type: string
+      summary: Serve main speed test interface
+      tags:
+      - Web Interface
+  /test/complete:
+    post:
+      consumes:
+      - application/json
+      description: Completes a test session and saves all collected data to database
+      parameters:
+      - description: Test session token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Complete speed test and save results
+      tags:
+      - Speed Test
+  /test/start:
+    post:
+      description: Creates a new test session and returns a unique token to use for
+        test requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Start a new speed test session
+      tags:
+      - Speed Test
 swagger: "2.0"
