@@ -85,9 +85,9 @@ func New() *Server {
 	api.HandleFunc("/config", h.Config).Methods("GET", "OPTIONS")
 
 	// Web interface endpoints (public HTML pages, with concurrent limiting)
-	api.HandleFunc("/", h.ServeSpeedTestHTML).Methods("GET", "OPTIONS")
-	api.HandleFunc("/speedtest.html", h.ServeSpeedTestHTML).Methods("GET", "OPTIONS")
-	api.HandleFunc("/new", h.ServeSpeedTestNewHTML).Methods("GET", "OPTIONS")
+	api.HandleFunc("/", h.ServeSpeedTestHTML).Methods("GET", "HEAD", "OPTIONS")
+	api.HandleFunc("/speedtest.html", h.ServeSpeedTestHTML).Methods("GET", "HEAD", "OPTIONS")
+	api.HandleFunc("/new", h.ServeSpeedTestNewHTML).Methods("GET", "HEAD", "OPTIONS")
 
 	// Ookla-compatible endpoints (public, with concurrent limiting)
 	api.HandleFunc("/result/{id}", h.GetSpeedTestOokla).Methods("GET", "OPTIONS")
